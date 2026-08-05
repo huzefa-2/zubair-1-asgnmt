@@ -5,18 +5,29 @@ pipeline {
         maven 'Maven3'
     }
 
+    environment {
+        SCANNER_HOME = tool 'SonarScanner'
+    }
+
     stages {
 
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/huzefa-2/zubair-1-asgnmt.git'
+                checkout scm
             }
         }
 
         stage('Build') {
             steps {
                 sh 'mvn clean package'
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh "${SCANNER_HOME}/bin/sonar-scanner"
+                }
             }
         }
 
@@ -28,22 +39,22 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo 'Deploy stage completed successfully.'
+                echo 'Deployment completed.'
             }
         }
     }
 
     post {
         success {
-            echo 'Pipeline executed successfully.'
+            echo 'Pipeline completed successfully.'
         }
 
         failure {
-            echo 'Pipeline execution failed.'
+            echo 'Pipeline failed.'
         }
 
         always {
-            echo 'Pipeline finished.'
+            echo 'Pipeline execution finished.'
         }
     }
 }
