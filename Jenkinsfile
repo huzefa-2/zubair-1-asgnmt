@@ -9,7 +9,7 @@ pipeline {
     stages {
 
         stage('Checkout') {
-            agent { label 'Agent-A' }
+            agent { label 'agent-A' }
 
             steps {
                 git branch: 'main',
@@ -18,7 +18,7 @@ pipeline {
         }
 
         stage('Test') {
-            agent { label 'Agent-A' }
+            agent { label 'agent-A' }
 
             steps {
                 sh 'mvn test'
@@ -26,7 +26,7 @@ pipeline {
         }
 
         stage('Build WAR') {
-            agent { label 'Agent-A' }
+            agent { label 'agent-A' }
 
             steps {
                 sh 'mvn clean package'
@@ -34,7 +34,7 @@ pipeline {
         }
 
         stage('Upload WAR to Artifactory') {
-            agent { label 'Agent-A' }
+            agent { label 'agent-A' }
 
             steps {
                 withCredentials([usernamePassword(
@@ -55,7 +55,7 @@ pipeline {
         }
 
         stage('Download WAR') {
-            agent { label 'Agent-B' }
+            agent { label 'agent-B' }
 
             steps {
                 withCredentials([usernamePassword(
@@ -74,7 +74,7 @@ pipeline {
         }
 
         stage('Deploy to Tomcat') {
-            agent { label 'Agent-B' }
+            agent { label 'agent-B' }
 
             steps {
                 sh '''
