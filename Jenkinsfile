@@ -1,60 +1,86 @@
 pipeline {
-    agent any
-
-    tools {
-        maven 'Maven3'
-    }
+    agent none
 
     environment {
-        SCANNER_HOME = tool 'SonarScanner'
+        ARTIFACTORY_URL = "http://http://13.220.119.42:8081//artifactory/libs-release-local"
+        WAR_NAME = "sample.war"
     }
 
     stages {
 
         stage('Checkout') {
+            agent { label 'Agent-A' }
+
             steps {
-                checkout scm
+                git branch: 'main',
+                    url: 'https://github.com/huzefa-2/zubair-1-asgnmt.git'
             }
         }
 
-        stage('Build') {
-            steps {
-                sh 'mvn clean package'
-            }
-        }
+        stage('Test') {
+            agent { label 'Agent-A' }
 
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh "${SCANNER_HOME}/bin/sonar-scanner"
-                }
-            }
-        }
-
-        stage('Run Tests') {
             steps {
                 sh 'mvn test'
             }
         }
 
-        stage('Deploy') {
+        stage('Build WAR') {
+            agent { label 'Agent-A' }
+
             steps {
-                echo 'Deployment completed.'
+                sh 'mvn clean package'
             }
         }
-    }
 
-    post {
-        success {
-            echo 'Pipeline completed successfully.'
+        stage('Upload WAR to Artifactory') {
+            agent { label 'Agent-A' }
+
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'artifactory-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+
+                    sh '''
+                    WAR=$(ls target/*.war | head -1)
+
+                    curl -u $USER:$PASS \
+                    -T $WAR \
+                    ${ARTIFACTORY_URL}/${WAR_NAME}
+                    '''
+                }
+            }
         }
 
-        failure {
-            echo 'Pipeline failed.'
+        stage('Download WAR') {
+            agent { label 'Agent-B' }
+
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'artifactory-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+
+                    sh '''
+                    curl -u $USER:$PASS \
+                    -o sample.war \
+                    ${ARTIFACTORY_URL}/${WAR_NAME}
+                    '''
+                }
+            }
         }
 
-        always {
-            echo 'Pipeline execution finished.'
+        stage('Deploy to Tomcat') {
+            agent { label 'Agent-B' }
+
+            steps {
+                sh '''
+                cp sample.war /opt/tomcat/webapps/
+                '''
+            }
         }
     }
 }
