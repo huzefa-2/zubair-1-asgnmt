@@ -1,86 +1,83 @@
 pipeline {
-    agent none
+    agent any
 
     environment {
-        ARTIFACTORY_URL = "http://http://13.220.119.42:8081//artifactory/libs-release-local"
-        WAR_NAME = "sample.war"
+        SONAR_PROJECT_KEY = 'my-app'
     }
 
     stages {
 
         stage('Checkout') {
-            agent { label 'agent-A' }
-
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/huzefa-2/zubair-1-asgnmt.git'
+                checkout scm
             }
         }
 
-        stage('Test') {
-            agent { label 'agent-A' }
-
+        stage('Maven Build') {
             steps {
-                sh 'mvn test'
-            }
-        }
+                echo '===== Maven Build ====='
 
-        stage('Build WAR') {
-            agent { label 'agent-A' }
-
-            steps {
-                sh 'mvn clean package'
-            }
-        }
-
-        stage('Upload WAR to Artifactory') {
-            agent { label 'agent-A' }
-
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'artifactory-creds',
-                    usernameVariable: 'USER',
-                    passwordVariable: 'PASS'
-                )]) {
-
-                    sh '''
-                    WAR=$(ls target/*.war | head -1)
-
-                    curl -u $USER:$PASS \
-                    -T $WAR \
-                    ${ARTIFACTORY_URL}/${WAR_NAME}
-                    '''
-                }
-            }
-        }
-
-        stage('Download WAR') {
-            agent { label 'agent-B' }
-
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'artifactory-creds',
-                    usernameVariable: 'USER',
-                    passwordVariable: 'PASS'
-                )]) {
-
-                    sh '''
-                    curl -u $USER:$PASS \
-                    -o sample.war \
-                    ${ARTIFACTORY_URL}/${WAR_NAME}
-                    '''
-                }
-            }
-        }
-
-        stage('Deploy to Tomcat') {
-            agent { label 'agent-B' }
-
-            steps {
                 sh '''
-                cp sample.war /opt/tomcat/webapps/
+                    mvn clean package -DskipTests
                 '''
             }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo '===== SonarQube Analysis ====='
+
+                withSonarQubeEnv('SonarQube') {
+                    sh '''
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
+                          -Dsonar.projectName=${SONAR_PROJECT_KEY}
+                    '''
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                echo '===== SonarQube Quality Gate ====='
+
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Trivy Filesystem Scan') {
+            steps {
+                echo '===== Trivy Filesystem Scan ====='
+
+                sh '''
+                    trivy \
+                      --config /dev/null \
+                      --scanners vuln \
+                      --severity HIGH,CRITICAL \
+                      fs .
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '======================================'
+            echo 'PIPELINE COMPLETED SUCCESSFULLY'
+            echo '======================================'
+        }
+
+        failure {
+            echo '======================================'
+            echo 'PIPELINE FAILED'
+            echo 'Check the Console Output'
+            echo '======================================'
+        }
+
+        always {
+            echo "Build Number: ${BUILD_NUMBER}"
         }
     }
 }
