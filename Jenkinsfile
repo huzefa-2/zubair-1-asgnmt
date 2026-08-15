@@ -7,25 +7,9 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
-        stage('Maven Build') {
-            steps {
-                echo '===== Maven Build ====='
-
-                sh '''
-                    mvn clean package -DskipTests
-                '''
-            }
-        }
-
         stage('SonarQube Analysis') {
             steps {
-                echo '===== SonarQube Analysis ====='
+                echo '===== SonarQube Code Analysis ====='
 
                 withSonarQubeEnv('SonarQube') {
                     sh '''
@@ -39,7 +23,7 @@ pipeline {
 
         stage('Quality Gate') {
             steps {
-                echo '===== SonarQube Quality Gate ====='
+                echo '===== Checking SonarQube Quality Gate ====='
 
                 timeout(time: 5, unit: 'MINUTES') {
                     waitForQualityGate abortPipeline: true
@@ -47,9 +31,19 @@ pipeline {
             }
         }
 
-        stage('Trivy Filesystem Scan') {
+        stage('Maven Build') {
             steps {
-                echo '===== Trivy Filesystem Scan ====='
+                echo '===== Maven Build ====='
+
+                sh '''
+                    mvn clean package -DskipTests
+                '''
+            }
+        }
+
+        stage('Trivy Scan') {
+            steps {
+                echo '===== Trivy Filesystem Vulnerability Scan ====='
 
                 sh '''
                     trivy \
@@ -64,16 +58,19 @@ pipeline {
 
     post {
         success {
-            echo '======================================'
-            echo 'PIPELINE COMPLETED SUCCESSFULLY'
-            echo '======================================'
+            echo '''
+            ==========================================
+              PIPELINE COMPLETED SUCCESSFULLY
+            ==========================================
+            '''
         }
 
         failure {
-            echo '======================================'
-            echo 'PIPELINE FAILED'
-            echo 'Check the Console Output'
-            echo '======================================'
+            echo '''
+            ==========================================
+              PIPELINE FAILED
+            ==========================================
+            '''
         }
 
         always {
