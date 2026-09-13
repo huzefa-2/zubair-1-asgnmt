@@ -46,7 +46,7 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                      -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                        -t ${IMAGE_NAME}:${BUILD_NUMBER} .
                 '''
             }
         }
@@ -55,14 +55,14 @@ pipeline {
             steps {
                 sh '''
                     docker run --rm \
-                      -v /var/run/docker.sock:/var/run/docker.sock \
-                      -v trivy-cache:/root/.cache/ \
-                      aquasec/trivy:latest \
-                      image \
-                      --scanners vuln \
-                      --severity HIGH,CRITICAL \
-                      --exit-code 1 \
-                      ${IMAGE_NAME}:${BUILD_NUMBER}
+                        -v /var/run/docker.sock:/var/run/docker.sock \
+                        -v trivy-cache:/root/.cache/ \
+                        aquasec/trivy:latest \
+                        image \
+                        --scanners vuln \
+                        --severity HIGH,CRITICAL \
+                        --exit-code 1 \
+                        ${IMAGE_NAME}:${BUILD_NUMBER}
                 '''
             }
         }
