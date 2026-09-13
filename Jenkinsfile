@@ -6,13 +6,13 @@ pipeline {
 
         IMAGE_NAME = "devops-demo"
 
-        // JFrog Docker registry URL from Set Me Up
-        JFROG_URL = "98.87.166.51:8082"
+        // JFrog Artifactory Docker registry
+        JFROG_URL = "98.87.166.51:8081"
 
         // JFrog Docker local repository
         JFROG_REPO = "docker-local"
 
-        // Final image name in JFrog
+        // Final image name
         JFROG_IMAGE = "${JFROG_URL}/${JFROG_REPO}/${IMAGE_NAME}:${BUILD_NUMBER}"
     }
 
@@ -150,7 +150,7 @@ Application:
 http://<EC2-PUBLIC-IP>:8088
 
 JFrog Image:
-98.87.166.51:8082/docker-local/devops-demo:${BUILD_NUMBER}
+98.87.166.51:8081/docker-local/devops-demo:${BUILD_NUMBER}
 
 ==========================================
 '''
