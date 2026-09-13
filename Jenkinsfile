@@ -6,10 +6,13 @@ pipeline {
 
         IMAGE_NAME = "devops-demo"
 
-        JFROG_URL = "http://artifactory:8082"
+        // JFrog Docker registry URL from Set Me Up
+        JFROG_URL = "98.87.166.51:8082"
 
+        // JFrog Docker local repository
         JFROG_REPO = "docker-local"
 
+        // Final image name in JFrog
         JFROG_IMAGE = "${JFROG_URL}/${JFROG_REPO}/${IMAGE_NAME}:${BUILD_NUMBER}"
     }
 
@@ -69,6 +72,7 @@ pipeline {
 
         stage('Push to JFrog') {
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jfrog-credentials',
@@ -76,6 +80,7 @@ pipeline {
                         passwordVariable: 'JFROG_TOKEN'
                     )
                 ]) {
+
                     sh '''
                         echo "$JFROG_TOKEN" | docker login ${JFROG_URL} \
                             -u "$JFROG_USER" \
@@ -95,6 +100,7 @@ pipeline {
 
         stage('Pull from JFrog') {
             steps {
+
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jfrog-credentials',
@@ -102,6 +108,7 @@ pipeline {
                         passwordVariable: 'JFROG_TOKEN'
                     )
                 ]) {
+
                     sh '''
                         echo "$JFROG_TOKEN" | docker login ${JFROG_URL} \
                             -u "$JFROG_USER" \
@@ -117,6 +124,7 @@ pipeline {
 
         stage('Deploy') {
             steps {
+
                 sh '''
                     docker rm -f devops-demo 2>/dev/null || true
 
@@ -131,13 +139,19 @@ pipeline {
     }
 
     post {
+
         success {
             echo '''
 ==========================================
         PIPELINE SUCCESSFUL
 ==========================================
+
 Application:
 http://<EC2-PUBLIC-IP>:8088
+
+JFrog Image:
+98.87.166.51:8082/docker-local/devops-demo:${BUILD_NUMBER}
+
 ==========================================
 '''
         }
@@ -147,7 +161,9 @@ http://<EC2-PUBLIC-IP>:8088
 ==========================================
         PIPELINE FAILED
 ==========================================
+
 Check the failed stage above.
+
 ==========================================
 '''
         }
