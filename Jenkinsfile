@@ -18,7 +18,7 @@ pipeline {
         stage('Maven Build & Test') {
             steps {
                 sh '''
-                    mvn clean package
+                    mvn clean package -U
                 '''
             }
         }
@@ -69,7 +69,6 @@ pipeline {
 
         stage('Push to JFrog') {
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jfrog-credentials',
@@ -77,7 +76,6 @@ pipeline {
                         passwordVariable: 'JFROG_TOKEN'
                     )
                 ]) {
-
                     sh '''
                         echo "$JFROG_TOKEN" | docker login ${JFROG_URL} \
                             -u "$JFROG_USER" \
@@ -97,7 +95,6 @@ pipeline {
 
         stage('Pull from JFrog') {
             steps {
-
                 withCredentials([
                     usernamePassword(
                         credentialsId: 'jfrog-credentials',
@@ -105,7 +102,6 @@ pipeline {
                         passwordVariable: 'JFROG_TOKEN'
                     )
                 ]) {
-
                     sh '''
                         echo "$JFROG_TOKEN" | docker login ${JFROG_URL} \
                             -u "$JFROG_USER" \
@@ -135,7 +131,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo '''
 ==========================================
