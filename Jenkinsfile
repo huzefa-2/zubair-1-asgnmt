@@ -3,8 +3,10 @@ pipeline {
     agent any
 
     environment {
-        IMAGE_NAME  = "myapp"
-        JFROG_IMAGE = "artifactory:8082/docker-local/myapp:${BUILD_NUMBER}"
+        IMAGE_NAME = "devops-demo"
+        JFROG_URL = "http://artifactory:8081"
+        JFROG_REPO = "docker-local"
+        JFROG_IMAGE = "${JFROG_URL}/${JFROG_REPO}/${IMAGE_NAME}:${BUILD_NUMBER}"
     }
 
     stages {
@@ -18,26 +20,20 @@ pipeline {
         stage('SonarQube') {
             steps {
                 withSonarQubeEnv('SonarQube') {
-                    withCredentials([
-                        string(
-                            credentialsId: 'sonar-token',
-                            variable: 'SONAR_TOKEN'
-                        )
-                    ]) {
-                        sh '''
-                            mvn sonar:sonar \
-                            -Dsonar.projectKey=devops-demo \
-                            -Dsonar.host.url=http://sonarqube:9000 \
-                            -Dsonar.token=$SONAR_TOKEN
-                        '''
-                    }
+                    sh '''
+                        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+                          -Dsonar.projectKey=devops-demo
+                    '''
                 }
             }
         }
 
         stage('Docker Build') {
             steps {
-                sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .'
+                sh '''
+                    docker build \
+                      -t ${IMAGE_NAME}:${BUILD_NUMBER} .
+                '''
             }
         }
 
@@ -45,13 +41,13 @@ pipeline {
             steps {
                 sh '''
                     docker run --rm \
-                    -v /var/run/docker.sock:/var/run/docker.sock \
-                    -v trivy-cache:/root/.cache \
-                    aquasec/trivy:latest \
-                    image \
-                    --severity HIGH,CRITICAL \
-                    --exit-code 1 \
-                    ${IMAGE_NAME}:${BUILD_NUMBER}
+                      -v /var/run/docker.sock:/var/run/docker.sock \
+                      -v trivy-cache:/root/.cache/ \
+                      aquasec/trivy:latest \
+                      image \
+                      --severity HIGH,CRITICAL \
+                      --exit-code 1 \
+                      ${IMAGE_NAME}:${BUILD_NUMBER}
                 '''
             }
         }
@@ -66,16 +62,15 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        echo "$JFROG_TOKEN" | docker login \
-                        artifactory:8082 \
-                        -u "$JFROG_USER" \
-                        --password-stdin
+                        echo "$JFROG_TOKEN" | docker login ${JFROG_URL} \
+                          -u "$JFROG_USER" \
+                          --password-stdin
 
-                        docker tag \
-                        ${IMAGE_NAME}:${BUILD_NUMBER} \
-                        ${JFROG_IMAGE}
+                        docker tag ${IMAGE_NAME}:${BUILD_NUMBER} ${JFROG_IMAGE}
 
                         docker push ${JFROG_IMAGE}
+
+                        docker logout ${JFROG_URL}
                     '''
                 }
             }
@@ -91,12 +86,13 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        echo "$JFROG_TOKEN" | docker login \
-                        artifactory:8082 \
-                        -u "$JFROG_USER" \
-                        --password-stdin
+                        echo "$JFROG_TOKEN" | docker login ${JFROG_URL} \
+                          -u "$JFROG_USER" \
+                          --password-stdin
 
                         docker pull ${JFROG_IMAGE}
+
+                        docker logout ${JFROG_URL}
                     '''
                 }
             }
@@ -105,12 +101,13 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh '''
-                    docker rm -f myapp 2>/dev/null || true
+                    docker rm -f devops-demo 2>/dev/null || true
 
                     docker run -d \
-                    --name myapp \
-                    -p 8081:8080 \
-                    ${JFROG_IMAGE}
+                      --name devops-demo \
+                      --restart unless-stopped \
+                      -p 8088:8080 \
+                      ${JFROG_IMAGE}
                 '''
             }
         }
@@ -120,9 +117,8 @@ pipeline {
         success {
             echo '======================================'
             echo 'PIPELINE SUCCESSFUL'
+            echo 'Application: http://<EC2-PUBLIC-IP>:8088'
             echo '======================================'
-            echo 'Application: http://EC2-PUBLIC-IP:8081'
-            echo 'Container: myapp'
         }
 
         failure {
