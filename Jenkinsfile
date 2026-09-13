@@ -9,22 +9,9 @@ pipeline {
 
     stages {
 
-        stage('Checkout') {
+        stage('Maven Build & Test') {
             steps {
-                checkout scm
-            }
-        }
-
-        stage('Maven Test') {
-            steps {
-                sh '''
-                    docker run --rm \
-                    -v "$WORKSPACE:/workspace" \
-                    -w /workspace \
-                    -v maven-cache:/root/.m2 \
-                    maven:3.9-eclipse-temurin-17 \
-                    mvn clean test
-                '''
+                sh 'mvn clean package'
             }
         }
 
@@ -38,12 +25,6 @@ pipeline {
                         )
                     ]) {
                         sh '''
-                            docker run --rm \
-                            -v "$WORKSPACE:/workspace" \
-                            -w /workspace \
-                            -v maven-cache:/root/.m2 \
-                            -e SONAR_TOKEN \
-                            maven:3.9-eclipse-temurin-17 \
                             mvn sonar:sonar \
                             -Dsonar.projectKey=devops-demo \
                             -Dsonar.host.url=http://sonarqube:9000 \
@@ -56,10 +37,7 @@ pipeline {
 
         stage('Docker Build') {
             steps {
-                sh '''
-                    docker build \
-                    -t ${IMAGE_NAME}:${BUILD_NUMBER} .
-                '''
+                sh 'docker build -t ${IMAGE_NAME}:${BUILD_NUMBER} .'
             }
         }
 
@@ -141,7 +119,7 @@ pipeline {
     post {
         success {
             echo '======================================'
-            echo 'PIPELINE COMPLETED SUCCESSFULLY'
+            echo 'PIPELINE SUCCESSFUL'
             echo '======================================'
             echo 'Application: http://EC2-PUBLIC-IP:8081'
             echo 'Container: myapp'
