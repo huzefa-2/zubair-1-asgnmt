@@ -1,80 +1,70 @@
 pipeline {
-    agent any
 
-    environment {
-        SONAR_PROJECT_KEY = 'my-app'
-    }
+    agent any
 
     stages {
 
-        stage('SonarQube Analysis') {
+        stage('Checkout') {
             steps {
-                echo '===== SonarQube Code Analysis ====='
+                checkout scm
+            }
+        }
 
+        stage('Maven Test') {
+            steps {
+                sh 'mvn clean test'
+            }
+        }
+
+        stage('SonarQube') {
+            steps {
                 withSonarQubeEnv('SonarQube') {
-                    sh '''
-                        mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
-                          -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                          -Dsonar.projectName=${SONAR_PROJECT_KEY}
-                    '''
+                    withCredentials([
+                        string(
+                            credentialsId: 'sonar-token',
+                            variable: 'SONAR_TOKEN'
+                        )
+                    ]) {
+                        sh '''
+                            mvn sonar:sonar \
+                            -Dsonar.projectKey=devops-demo \
+                            -Dsonar.token=$SONAR_TOKEN
+                        '''
+                    }
                 }
             }
         }
 
-        stage('Quality Gate') {
+        stage('Docker Build') {
             steps {
-                echo '===== Checking SonarQube Quality Gate ====='
-
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-        stage('Maven Build') {
-            steps {
-                echo '===== Maven Build ====='
-
-                sh '''
-                    mvn clean package -DskipTests
-                '''
+                sh 'docker build -t devops-demo:${BUILD_NUMBER} .'
             }
         }
 
         stage('Trivy Scan') {
             steps {
-                echo '===== Trivy Filesystem Vulnerability Scan ====='
-
                 sh '''
-                    trivy \
-                      --config /dev/null \
-                      --scanners vuln \
-                      --severity HIGH,CRITICAL \
-                      fs .
+                    docker run --rm \
+                    -v /var/run/docker.sock:/var/run/docker.sock \
+                    -v trivy-cache:/root/.cache \
+                    aquasec/trivy:latest \
+                    image \
+                    --severity HIGH,CRITICAL \
+                    devops-demo:${BUILD_NUMBER}
                 '''
             }
         }
-    }
 
-    post {
-        success {
-            echo '''
-            ==========================================
-              PIPELINE COMPLETED SUCCESSFULLY
-            ==========================================
-            '''
+        stage('Push to JFrog') {
+            steps {
+                echo 'Push Docker image to JFrog here'
+            }
         }
 
-        failure {
-            echo '''
-            ==========================================
-              PIPELINE FAILED
-            ==========================================
-            '''
-        }
-
-        always {
-            echo "Build Number: ${BUILD_NUMBER}"
+        stage('Deploy') {
+            steps {
+                echo 'Deploy Docker container here'
+            }
         }
     }
 }
